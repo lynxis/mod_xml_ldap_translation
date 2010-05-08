@@ -169,7 +169,6 @@ static void xml_ldap_result_group(void  *ldap_connection, trans_group_t *group, 
     if(!group)
         return;
     for (; group ; group = group->next) {
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "group call name %s off %i \n", group->name, 2 );
         group_tag = switch_xml_add_child_d(*parent_tag, group->name, (*off)++);
         if(group->trans)
             xml_ldap_result_trans(ldap_connection, group->trans, &group_tag, off);
@@ -204,8 +203,6 @@ static void xml_ldap_result_trans(void *ldap_connection, trans_t *trans, switch_
 
 				/* we use only the first argument/val pair. maybe someone write support for it */	
 				ldap->val = (*ldap->berval)->bv_val;
-				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "key = %s , value = %s \n", ldap->key, ldap->val);
-				
 				attr_tag = switch_xml_add_child_d(*parent_tag, iter->attrname, (*off)++);
 				switch_xml_set_attr_d(attr_tag, "name", iter->xmlname);
 				switch_xml_set_attr_d(attr_tag, "value", ldap->val);
