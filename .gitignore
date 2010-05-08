@@ -1,0 +1,4 @@
+/.libs
+/mod_xml_ldap.o
+/mod_xml_ldap.lo
+/mod_xml_ldap.so
