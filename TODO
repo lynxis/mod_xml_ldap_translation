@@ -1,0 +1,6 @@
+=== TODO ===
+  * cleanup memory leaks 
+  * xml debug
+  * an applicaton to be used within dialplan 
+  * default vars for the translation, used when a field is not defined
+  * <user_id="lynxis" number_alias=1023"> feature
