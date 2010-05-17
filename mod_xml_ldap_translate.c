@@ -28,7 +28,7 @@
  * Justin Cassidy <xachenant@hotmail.com>
  * John Skopis <john+fs@skopis.com>
  * 
- * mod_xml_ldap.c -- LDAP XML Gateway
+ * mod_xml_ldap_translate.c -- LDAP XML Gateway
  *
  */
 #include <switch.h>
@@ -51,11 +51,11 @@ typedef enum {
 	XML_LDAP_DIRECTORY,
 	XML_LDAP_DIALPLAN,
 	XML_LDAP_PHRASE
-} xml_ldap_query_type_t;
+} xml_ldap_translate_query_type_t;
 
-SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_load);
-SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_xml_ldap_shutdown);
-SWITCH_MODULE_DEFINITION(mod_xml_ldap, mod_xml_ldap_load, mod_xml_ldap_shutdown, NULL);
+SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_translate_load);
+SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_xml_ldap_translate_shutdown);
+SWITCH_MODULE_DEFINITION(mod_xml_ldap_translate, mod_xml_ldap_translate_load, mod_xml_ldap_translate_shutdown, NULL);
 
 struct trans;
 typedef struct trans {
@@ -99,17 +99,17 @@ typedef struct ldap_c {
 	char *sp;
 } ldap_ctx;
 
-static switch_status_t xml_ldap_directory_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
-static switch_status_t xml_ldap_dialplan_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
-static int xml_ldap_set_trans(trans_t **first, switch_xml_t *parent_tag);
-static int xml_ldap_set_group(trans_group_t **group, switch_xml_t *parent_tag);
+static switch_status_t xml_ldap_translate_directory_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
+static switch_status_t xml_ldap_translate_dialplan_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
+static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_tag);
+static int xml_ldap_translate_set_group(trans_group_t **group, switch_xml_t *parent_tag);
 
-static void xml_ldap_result_trans(void *ldap_connection, trans_t *trans, switch_xml_t *parent_tag, int *off);
-static void xml_ldap_result_group(void *ldap_connection, trans_group_t *group, switch_xml_t *parent_tag, int *off);
+static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *trans, switch_xml_t *parent_tag, int *off);
+static void xml_ldap_translate_result_group(void *ldap_connection, trans_group_t *group, switch_xml_t *parent_tag, int *off);
 
-#define XML_LDAP_SYNTAX "[debug_on|debug_off]"
+#define XML_LDAP_TRANSLATE_SYNTAX "[debug_on|debug_off]"
 
-SWITCH_STANDARD_API(xml_ldap_function)
+SWITCH_STANDARD_API(xml_ldap_translate_function)
 {
 	if (session) {
 		return SWITCH_STATUS_FALSE;
@@ -129,7 +129,7 @@ SWITCH_STANDARD_API(xml_ldap_function)
 	return SWITCH_STATUS_SUCCESS;
 
   usage:
-	stream->write_function(stream, "USAGE: %s\n", XML_LDAP_SYNTAX);
+	stream->write_function(stream, "USAGE: %s\n", XML_LDAP_TRANSLATE_SYNTAX);
 	return SWITCH_STATUS_SUCCESS;
 }
 /* you must free the pointer you got returned from it 
@@ -142,28 +142,28 @@ static char * xml_ldap_trans_xmlname(xml_binding_t *binding, char *ldapname)
 	return NULL;
 }
 */
-static switch_status_t xml_ldap_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off,
-									   const xml_ldap_query_type_t query_type)
+static switch_status_t xml_ldap_translate_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off,
+									   const xml_ldap_translate_query_type_t query_type)
 {
 	switch (query_type) {
 	case XML_LDAP_DIRECTORY:
-		return xml_ldap_directory_result(ldap_connection, binding, xml, off);
+		return xml_ldap_translate_directory_result(ldap_connection, binding, xml, off);
 
 	case XML_LDAP_DIALPLAN:
-		return xml_ldap_dialplan_result(ldap_connection, binding, xml, off);
+		return xml_ldap_translate_dialplan_result(ldap_connection, binding, xml, off);
 
 	default:
-		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "xml_ldap_result \n");		
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "xml_ldap_translate_result \n");		
 		return SWITCH_STATUS_FALSE;
 	}
 }
 
-static switch_status_t xml_ldap_dialplan_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off)
+static switch_status_t xml_ldap_translate_dialplan_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off)
 {
 	return SWITCH_STATUS_FALSE;
 }
 
-static void xml_ldap_result_group(void  *ldap_connection, trans_group_t *group, switch_xml_t *parent_tag, int *off) {
+static void xml_ldap_translate_result_group(void  *ldap_connection, trans_group_t *group, switch_xml_t *parent_tag, int *off) {
 	switch_xml_t group_tag = NULL;
 
     if(!group)
@@ -171,12 +171,12 @@ static void xml_ldap_result_group(void  *ldap_connection, trans_group_t *group, 
     for (; group ; group = group->next) {
         group_tag = switch_xml_add_child_d(*parent_tag, group->name, (*off)++);
         if(group->trans)
-            xml_ldap_result_trans(ldap_connection, group->trans, &group_tag, off);
+            xml_ldap_translate_result_trans(ldap_connection, group->trans, &group_tag, off);
         if(group->child)
-            xml_ldap_result_group(ldap_connection, group->child, &group_tag, off);
+            xml_ldap_translate_result_group(ldap_connection, group->child, &group_tag, off);
     }
 }
-static void xml_ldap_result_trans(void *ldap_connection, trans_t *trans, switch_xml_t *parent_tag, int *off) {
+static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *trans, switch_xml_t *parent_tag, int *off) {
 	struct ldap_c *ldap = ldap_connection;
     switch_xml_t attr_tag;
 	trans_t *iter;
@@ -220,13 +220,13 @@ static void xml_ldap_result_trans(void *ldap_connection, trans_t *trans, switch_
 	}
 }
 
-static switch_status_t xml_ldap_directory_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *parent_tag, int *off)
+static switch_status_t xml_ldap_translate_directory_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *parent_tag, int *off)
 {
 	struct ldap_c *ldap = ldap_connection;
 /* iter thought the groups and search for the trans. every group will become a tag and every trans without a value wont write out to the xml */	
 
 	if(binding->trans_group)
-	  	xml_ldap_result_group(ldap_connection, binding->trans_group, parent_tag, off);
+	  	xml_ldap_translate_result_group(ldap_connection, binding->trans_group, parent_tag, off);
 
 	if (ldap->berkey) {
 		ber_free(ldap->berkey, 0);
@@ -235,7 +235,7 @@ static switch_status_t xml_ldap_directory_result(void *ldap_connection, xml_bind
 }
 
 
-static switch_xml_t xml_ldap_search(const char *section, const char *tag_name, const char *key_name, const char *key_value, switch_event_t *params,
+static switch_xml_t xml_ldap_translate_search(const char *section, const char *tag_name, const char *key_name, const char *key_value, switch_event_t *params,
 									void *user_data)
 {
 	xml_binding_t *binding = (xml_binding_t *) user_data;
@@ -248,7 +248,7 @@ static switch_xml_t xml_ldap_search(const char *section, const char *tag_name, c
 
 	int auth_method = LDAP_AUTH_SIMPLE;
 	int desired_version = LDAP_VERSION3;
-	xml_ldap_query_type_t query_type;
+	xml_ldap_translate_query_type_t query_type;
 	char *dir_exten = NULL, *dir_domain = NULL;
 
 	char *search_filter = NULL, *search_base = NULL;
@@ -396,7 +396,7 @@ static switch_xml_t xml_ldap_search(const char *section, const char *tag_name, c
 		goto cleanup;
 	}
 
-	if (sub && xml_ldap_result(&ldap_connection, binding, &sub, &off, query_type) != SWITCH_STATUS_SUCCESS) {
+	if (sub && xml_ldap_translate_result(&ldap_connection, binding, &sub, &off, query_type) != SWITCH_STATUS_SUCCESS) {
         ret = 1;
 		goto cleanup;
 	}
@@ -426,7 +426,7 @@ static switch_xml_t xml_ldap_search(const char *section, const char *tag_name, c
 
 static switch_status_t do_config(void)
 {
-	char *cf = "xml_ldap.conf";
+	char *cf = "xml_ldap_translate.conf";
 	switch_xml_t cfg, xml, bindings_tag, binding_tag, param, trans_tag;
 	xml_binding_t *binding = NULL;
 	int x = 0;
@@ -483,23 +483,23 @@ static switch_status_t do_config(void)
 			}
 		}
 		if (!binding->basedn || !binding->filter) {
-			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "You must define \"basedn\", and \"filter\" in mod_xml_ldap.conf.xml\n");
+			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "You must define \"basedn\", and \"filter\" in mod_xml_translate_ldap_translate.conf.xml\n");
 			/* TODO will this create a memory leak ? */
 			continue;
 		}
 		
 		if (!(trans_tag = switch_xml_child(binding_tag, "trans")))  {
-			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "You must define trans tag in mod_xml_ldap.conf.xml\n");
+			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "You must define trans tag in mod_xml_ldap_translate.conf.xml\n");
 			/* TODO memory leak ? */
 			continue;
 		}
-		xml_ldap_set_group(&(binding->trans_group), &trans_tag);
-		xml_ldap_set_trans(&(binding->trans), &trans_tag);
+		xml_ldap_translate_set_group(&(binding->trans_group), &trans_tag);
+		xml_ldap_translate_set_trans(&(binding->trans), &trans_tag);
 		/* TODO check for a group, if no group configured... */
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "Binding [%s] XML Fetch Function [%s] (%s) [%s]\n",
 						  zstr(bname) ? "N/A" : bname, binding->basedn, binding->filter, binding->bindings ? binding->bindings : "all");
 
-		switch_xml_bind_search_function(xml_ldap_search, switch_xml_parse_section_string(bname), binding);
+		switch_xml_bind_search_function(xml_ldap_translate_search, switch_xml_parse_section_string(bname), binding);
 
 		x++;
 		binding = NULL;
@@ -514,7 +514,7 @@ static switch_status_t do_config(void)
 /* 
  * parent targetting the layer above the tran tags
   */
-static int xml_ldap_set_trans(trans_t **first, switch_xml_t *parent_tag) {
+static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_tag) {
 	trans_t *iter, *prev;
 	switch_xml_t tran;
 	prev = NULL;
@@ -542,7 +542,7 @@ static int xml_ldap_set_trans(trans_t **first, switch_xml_t *parent_tag) {
 }
 /* 
  */
-static int xml_ldap_set_group(trans_group_t **group, switch_xml_t *parent_tag) {
+static int xml_ldap_translate_set_group(trans_group_t **group, switch_xml_t *parent_tag) {
 	switch_xml_t group_tag = NULL;
 	trans_group_t *iter, *prev;
 
@@ -565,20 +565,20 @@ static int xml_ldap_set_group(trans_group_t **group, switch_xml_t *parent_tag) {
         iter->next = NULL;
 		iter->name = strdup(groupname);
 		prev = iter;
-		xml_ldap_set_group(&(iter->child), &group_tag);
-		xml_ldap_set_trans(&(iter->trans), &group_tag);
+		xml_ldap_translate_set_group(&(iter->child), &group_tag);
+		xml_ldap_translate_set_trans(&(iter->trans), &group_tag);
 	}
 	return 0;
 }
 
-SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_load)
+SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_translate_load)
 {
-	switch_api_interface_t *xml_ldap_api_interface;
+	switch_api_interface_t *xml_ldap_translate_api_interface;
 
 	/* connect my internal structure to the blank pointer passed to me */
 	*module_interface = switch_loadable_module_create_module_interface(pool, modname);
 
-	SWITCH_ADD_API(xml_ldap_api_interface, "xml_ldap", "XML LDAP", xml_ldap_function, XML_LDAP_SYNTAX);
+	SWITCH_ADD_API(xml_ldap_translate_api_interface, "xml_ldap_translate", "XML LDAP", xml_ldap_translate_function, XML_LDAP_SYNTAX);
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "XML LDAP module loading...\n");
 
 	if (do_config() != SWITCH_STATUS_SUCCESS) {
@@ -589,7 +589,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_load)
 	return SWITCH_STATUS_SUCCESS;
 }
 
-SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_xml_ldap_shutdown)
+SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_xml_ldap_translate_shutdown)
 {
 	/* free pointer ? */
 	return SWITCH_STATUS_SUCCESS;
