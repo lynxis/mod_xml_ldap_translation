@@ -513,7 +513,7 @@ static switch_status_t do_config(void)
 }
 /* 
  * parent targetting the layer above the tran tags
-  */
+ */
 static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_tag) {
 	trans_t *iter, *prev;
 	switch_xml_t tran;
@@ -578,7 +578,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_translate_load)
 	/* connect my internal structure to the blank pointer passed to me */
 	*module_interface = switch_loadable_module_create_module_interface(pool, modname);
 
-	SWITCH_ADD_API(xml_ldap_translate_api_interface, "xml_ldap_translate", "XML LDAP", xml_ldap_translate_function, XML_LDAP_SYNTAX);
+	SWITCH_ADD_API(xml_ldap_translate_api_interface, "xml_ldap_translate", "XML LDAP", xml_ldap_translate_function, XML_LDAP_TRANSLATE_SYNTAX);
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "XML LDAP module loading...\n");
 
 	if (do_config() != SWITCH_STATUS_SUCCESS) {
