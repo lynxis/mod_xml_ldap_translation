@@ -22,7 +22,7 @@ $(LDAP_DIR):
 
 $(LDAP_BUILDDIR)/Makefile: $(LDAP_DIR)
 	mkdir -p $(LDAP_BUILDDIR)
-	cd $(LDAP_BUILDDIR) && $(DEFAULT_VARS) CFLAGS+=-fPIC $(LDAP_DIR)/configure $(LDAP_ARGS) --srcdir=$(LDAP_DIR)
+	cd $(LDAP_BUILDDIR) && $(DEFAULT_VARS) CFLAGS=-fPIC $(LDAP_DIR)/configure $(LDAP_ARGS) --srcdir=$(LDAP_DIR)
 	$(TOUCH_TARGET)
 
 $(LDAPLA) $(LIBLBERLA): $(LDAP_BUILDDIR)/Makefile
