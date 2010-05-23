@@ -99,6 +99,8 @@ typedef struct ldap_c {
 	char *sp;
 } ldap_ctx;
 
+static int xml_ldap_translate_debug_xml;
+
 static switch_status_t xml_ldap_translate_directory_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
 static switch_status_t xml_ldap_translate_dialplan_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
 static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_tag);
@@ -107,7 +109,7 @@ static int xml_ldap_translate_set_group(trans_group_t **group, switch_xml_t *par
 static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *trans, switch_xml_t *parent_tag, int *off);
 static void xml_ldap_translate_result_group(void *ldap_connection, trans_group_t *group, switch_xml_t *parent_tag, int *off);
 
-#define XML_LDAP_TRANSLATE_SYNTAX "[debug_on|debug_off]"
+#define XML_LDAP_TRANSLATE_SYNTAX "[xml_output_on|xml_output_off]"
 
 SWITCH_STANDARD_API(xml_ldap_translate_function)
 {
@@ -119,8 +121,10 @@ SWITCH_STANDARD_API(xml_ldap_translate_function)
 		goto usage;
 	}
 
-	if (!strcasecmp(cmd, "debug_on")) {
-	} else if (!strcasecmp(cmd, "debug_off")) {
+	if (!strcasecmp(cmd, "xml_output_on")) {
+        xml_ldap_translate_debug_xml = 1;
+	} else if (!strcasecmp(cmd, "xml_output_off")) {
+        xml_ldap_translate_debug_xml = 0;
 	} else {
 		goto usage;
 	}
@@ -357,8 +361,6 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 		}
 	}
 
-
-
 	if ((ldap->ld = (LDAP *) ldap_init(binding->host, LDAP_PORT)) == NULL) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to connect to ldap server.%s\n", binding->host);
 		goto cleanup;
@@ -414,6 +416,10 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 
 	switch_safe_free(search_filter);
 	switch_safe_free(search_base);
+    if(xml_ldap_translate_debug_xml) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "xml_ldap_translate : XML File :\n%s\n", buf);
+        switch_xml_toxml_buf(xml, buf, 0, 0, 1);
+    }
 
 	if (ret) {
 		switch_xml_free(xml);
@@ -580,6 +586,8 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_translate_load)
 
 	SWITCH_ADD_API(xml_ldap_translate_api_interface, "xml_ldap_translate", "XML LDAP", xml_ldap_translate_function, XML_LDAP_TRANSLATE_SYNTAX);
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "XML LDAP module loading...\n");
+
+    xml_ldap_translate_debug_xml = 0;
 
 	if (do_config() != SWITCH_STATUS_SUCCESS) {
 		return SWITCH_STATUS_FALSE;
