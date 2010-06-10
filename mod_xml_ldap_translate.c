@@ -62,6 +62,7 @@ typedef struct trans {
 	char *ldapname;
 	char *xmlname;
     char *attrname;
+    char *defaultval;
 	struct trans *next;
 } trans_t;
 
@@ -195,23 +196,27 @@ static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *tran
 				if(ldap->berval == NULL) {
 					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "no values found for key %s", ldap->key);
 					continue;
-				}
-				if((*ldap->berval)->bv_len == 0 ) {
+				} else if((*ldap->berval)->bv_len == 0 ) {
 					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "value is empty for key %s", ldap->key);
 					continue;
-				}
-				if((*ldap->berval)->bv_val == NULL ) {
-					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "value is NULL for key %s", ldap->key);
+				} else if((*ldap->berval)->bv_val == NULL ) {
+					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "value is NULL for key %s", ldap->key);
 					continue;
 				}
+                else {
+				    ldap->val = (*ldap->berval)->bv_val;
+                    break;
+                }
 
 				/* we use only the first argument/val pair. maybe someone write support for it */	
-				ldap->val = (*ldap->berval)->bv_val;
-				attr_tag = switch_xml_add_child_d(*parent_tag, iter->attrname, (*off)++);
-				switch_xml_set_attr_d(attr_tag, "name", iter->xmlname);
+			}
+            // key maybe not found, may be found
+            attr_tag = switch_xml_add_child_d(*parent_tag, iter->attrname, (*off)++);
+			switch_xml_set_attr_d(attr_tag, "name", iter->xmlname);
+            if(ldap->key) {
+                // key found
 				switch_xml_set_attr_d(attr_tag, "value", ldap->val);
 
-				
 				if (ldap->key) {
 					ldap_memfree(ldap->key);
 				}
@@ -219,7 +224,12 @@ static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *tran
 				if (ldap->berval) {
 					ldap_value_free_len(ldap->berval);
 				}
-			}
+
+            }
+            else {
+                // key not found
+				switch_xml_set_attr_d(attr_tag, "value", iter->defaultval);
+            }
 		}
 	}
 }
@@ -529,8 +539,9 @@ static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_ta
 		char *xmlname = (char *) switch_xml_attr_soft(tran, "xmlname");
 		char *attrname = (char *) switch_xml_attr_soft(tran, "attrname");
 		char *ldapname = (char *) switch_xml_attr_soft(tran, "ldapname");
-		if((!xmlname) || (!ldapname) || (!attrname)) {
-			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "attrname %s, xmlname %s or ldapname %s is empty or null\n", attrname, xmlname, ldapname );
+		char *defaultval = (char *) switch_xml_attr_soft(tran, "defaultval");
+		if((!xmlname) || (!ldapname) || (!attrname) || (!defaultval)) {
+			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "attrname %s, xmlname %s or ldapname %s or defaultval %s is empty or null\n", attrname, xmlname, ldapname, defaultval );
 			continue;
 		}
 		iter = calloc(1, sizeof(struct trans));
@@ -542,6 +553,7 @@ static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_ta
 		iter->xmlname = strdup(xmlname);
 		iter->ldapname = strdup(ldapname);
         iter->attrname = strdup(attrname);
+        iter->defaultval = strdup(defaultval);
         prev = iter;
 	}
 	return 0;
