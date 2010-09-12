@@ -433,6 +433,8 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 
 	if (ret) {
 		switch_xml_free(xml);
+        free(buf);
+        buf = NULL;
 		return NULL;
 	}
 
@@ -611,7 +613,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_translate_load)
 
 SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_xml_ldap_translate_shutdown)
 {
-	/* free pointer ? */
+	/* free pointer ? like the binding */
 	return SWITCH_STATUS_SUCCESS;
 }
 
