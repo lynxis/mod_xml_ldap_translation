@@ -269,7 +269,7 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 	int off = 0, ret = 1;
 
 	char *buf;
-	buf = malloc(4096);
+	buf = calloc(1, 4096);
 
 
 	if (!binding) {
@@ -460,12 +460,12 @@ static switch_status_t do_config(void)
 	for (binding_tag = switch_xml_child(bindings_tag, "binding"); binding_tag; binding_tag = binding_tag->next) {
 		char *bname = (char *) switch_xml_attr_soft(binding_tag, "name");
 
-		if (!(binding = malloc(sizeof(*binding)))) {
+		if (!(binding = calloc(1, sizeof(*binding)))) {
 			goto done;
 		}
 		memset(binding, 0, sizeof(xml_binding_t));
 
-		if (!(binding->defaults = malloc(sizeof(lutilSASLdefaults)))) {
+		if (!(binding->defaults = calloc(1, sizeof(lutilSASLdefaults)))) {
 			goto done;
 		}
 		memset(binding->defaults, 0, sizeof(lutilSASLdefaults));
