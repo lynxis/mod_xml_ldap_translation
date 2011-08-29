@@ -82,7 +82,7 @@ typedef struct xml_binding {
 	char *bindpass;
 	char *filter;
 	char **attrs;
-	trans_t *trans;	
+	trans_t *trans;
 	trans_group_t *trans_group;
 	lutilSASLdefaults *defaults;
 } xml_binding_t;
@@ -102,8 +102,7 @@ typedef struct ldap_c {
 
 static int xml_ldap_translate_debug_xml;
 
-static switch_status_t xml_ldap_translate_directory_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
-static switch_status_t xml_ldap_translate_dialplan_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
+static switch_status_t xml_ldap_translate_directory_result(void *ldap_connectiooninding_t *binding, switch_xml_t *xml, int *off);
 static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_tag);
 static int xml_ldap_translate_set_group(trans_group_t **group, switch_xml_t *parent_tag);
 
@@ -154,18 +153,10 @@ static switch_status_t xml_ldap_translate_result(void *ldap_connection, xml_bind
 	case XML_LDAP_DIRECTORY:
 		return xml_ldap_translate_directory_result(ldap_connection, binding, xml, off);
 
-	case XML_LDAP_DIALPLAN:
-		return xml_ldap_translate_dialplan_result(ldap_connection, binding, xml, off);
-
 	default:
-		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "xml_ldap_translate_result \n");		
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "xml_ldap_translate_result \n");
 		return SWITCH_STATUS_FALSE;
 	}
-}
-
-static switch_status_t xml_ldap_translate_dialplan_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off)
-{
-	return SWITCH_STATUS_FALSE;
 }
 
 static void xml_ldap_translate_result_group(void  *ldap_connection, trans_group_t *group, switch_xml_t *parent_tag, int *off) {
@@ -181,7 +172,7 @@ static void xml_ldap_translate_result_group(void  *ldap_connection, trans_group_
             xml_ldap_translate_result_group(ldap_connection, group->child, &group_tag, off);
     }
 }
-static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *trans, switch_xml_t *parent_tag, int *off) {
+static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *transb, switch_xml_t *parent_tag, int *off) {
 	struct ldap_c *ldap = ldap_connection;
     switch_xml_t attr_tag;
 	trans_t *iter;
@@ -257,11 +248,10 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 
 	switch_xml_t xml = NULL, sub = NULL;
 
-	struct ldap_c ldap_connection;
-	struct ldap_c *ldap = &ldap_connection;
+	struct ldap_c *ldap = NULL;
 
-	int auth_method = LDAP_AUTH_SIMPLE;
-	int desired_version = LDAP_VERSION3;
+	const int auth_method = LDAP_AUTH_SIMPLE;
+	const int desired_version = LDAP_VERSION3;
 	xml_ldap_translate_query_type_t query_type;
 	char *dir_exten = NULL, *dir_domain = NULL;
 
@@ -269,33 +259,31 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 	int off = 0, ret = 1;
 
 	char *buf;
-	buf = calloc(1, 4096);
 
 
 	if (!binding) {
-		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "No bindings...sorry bud returning now\n");
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "No bindings...sorry but returning now\n");
 		return NULL;
 	}
 
-	if (!strcmp(section, "configuration")) {
-		query_type = XML_LDAP_CONFIG;
-	} else if (!strcmp(section, "directory")) {
+	if (!strcmp(section, "directory")) {
 		query_type = XML_LDAP_DIRECTORY;
-	} else if (!strcmp(section, "dialplan")) {
-		query_type = XML_LDAP_DIALPLAN;
-	} else if (!strcmp(section, "phrases")) {
-		query_type = XML_LDAP_PHRASE;
 	} else {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Invalid section\n");
 		return NULL;
 	}
 
+    switch_zmalloc(ldap, sizeof(struct ldap));
+    if (!ldap) {
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Not enought memory avaible\n");
+        return NULL;
+    }
+
 	if (params) {
 		if ((hi = params->headers)) {
+            /* get parameters */
 			for (; hi; hi = hi->next) {
 				switch (query_type) {
-				case XML_LDAP_CONFIG:
-					break;
 
 				case XML_LDAP_DIRECTORY:
 					if (!strcmp(hi->name, "user")) {
@@ -307,12 +295,12 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 
 				case XML_LDAP_DIALPLAN:
 				case XML_LDAP_PHRASE:
+				case XML_LDAP_CONFIG:
 					break;
 				}
 			}
+            /* parse parameter */
 			switch (query_type) {
-			case XML_LDAP_CONFIG:
-				break;
 
 			case XML_LDAP_DIRECTORY:
 				if (dir_exten && dir_domain) {
@@ -350,26 +338,6 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 				}
 				break;
 
-			case XML_LDAP_DIALPLAN:
-				if ((xml = switch_xml_new("document"))) {
-					switch_xml_set_attr_d(xml, "type", "freeswitch/xml");
-
-					if ((sub = switch_xml_add_child_d(xml, "section", off++))) {
-						switch_xml_set_attr_d(sub, "name", "dialplan");
-					}
-
-					sub = switch_xml_add_child_d(xml, "context", off++);
-				}
-
-				break;
-
-			case XML_LDAP_PHRASE:
-				break;
-			}
-		} else {
-			goto cleanup;
-		}
-	}
 
 	if ((ldap->ld = (LDAP *) ldap_init(binding->host, LDAP_PORT)) == NULL) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to connect to ldap server.%s\n", binding->host);
@@ -377,7 +345,7 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 	}
 
 	if (ldap_set_option(ldap->ld, LDAP_OPT_PROTOCOL_VERSION, &desired_version) != LDAP_OPT_SUCCESS) {
-		goto cleanup;
+		goto ldapcleanup;
 	}
 
 	ldap_set_option(ldap->ld, LDAP_OPT_X_SASL_SECPROPS, &ldap->sp);
@@ -387,7 +355,7 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 	if (binding->binddn) {
 		if (ldap_bind_s(ldap->ld, binding->binddn, binding->bindpass, auth_method) != LDAP_SUCCESS) {
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to bind to ldap server %s as %s\n", binding->host, binding->binddn);
-			goto cleanup;
+			goto ldapcleanup;
 		}
 	} else {
 		if (ldap_sasl_interactive_bind_s
@@ -395,27 +363,27 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 			 binding->defaults) != LDAP_SUCCESS) {
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to sasl_bind to ldap server %s as %s\n", binding->host,
 							  binding->defaults->authcid);
-			goto cleanup;
+			goto ldapcleanup;
 		}
 	}
 	
 	if (ldap_search_s(ldap->ld, search_base, LDAP_SCOPE_SUBTREE, search_filter, NULL, 0, &ldap->msg) != LDAP_SUCCESS) {
-		goto cleanup;
+		goto ldapcleanup;
 	}
 
 	if (ldap_count_entries(ldap->ld, ldap->msg) <= 0) {
         ret = 1;
-		goto cleanup;
+		goto ldapcleanup;
 	}
 
 	if (sub && xml_ldap_translate_result(&ldap_connection, binding, &sub, &off, query_type) != SWITCH_STATUS_SUCCESS) {
         ret = 1;
-		goto cleanup;
+		goto ldapcleanup;
 	}
 
 	ret = 0;
 
-  cleanup:
+  ldapcleanup:
 	if (ldap->msg) {
 		ldap_msgfree(ldap->msg);
 	}
@@ -424,17 +392,22 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 		ldap_unbind_s(ldap->ld);
 	}
 
+  cleanup:
 	switch_safe_free(search_filter);
 	switch_safe_free(search_base);
+	switch_safe_free(ldap);
     if(xml_ldap_translate_debug_xml) {
+        switch_zmalloc(buf, sizeof(struct ldap));
+        if(!buf) {
+        }
+        switch_xml_toxml_buf(xml, buf, 4095, 0, 1);
         switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "xml_ldap_translate : XML File :\n%s\n", buf);
-        switch_xml_toxml_buf(xml, buf, 0, 0, 1);
+        free(buf);
+        buf = NULL;
     }
 
 	if (ret) {
 		switch_xml_free(xml);
-        free(buf);
-        buf = NULL;
 		return NULL;
 	}
 
@@ -529,7 +502,7 @@ static switch_status_t do_config(void)
 
 	return SWITCH_STATUS_SUCCESS;
 }
-/* 
+/*
  * parent targetting the layer above the tran tags
  */
 static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_tag) {
