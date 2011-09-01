@@ -43,8 +43,9 @@
 #include <lber.h>
 #include <ldap.h>
 #include <sasl/sasl.h>
-#include "lutil_ldap.h"
 #endif
+
+#include "lutil_ldap.h"
 
 typedef enum {
 	XML_LDAP_CONFIG = 0,
@@ -102,7 +103,7 @@ typedef struct ldap_c {
 
 static int xml_ldap_translate_debug_xml;
 
-static switch_status_t xml_ldap_translate_directory_result(void *ldap_connectiooninding_t *binding, switch_xml_t *xml, int *off);
+static switch_status_t xml_ldap_translate_directory_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
 static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_tag);
 static int xml_ldap_translate_set_group(trans_group_t **group, switch_xml_t *parent_tag);
 
@@ -172,7 +173,7 @@ static void xml_ldap_translate_result_group(void  *ldap_connection, trans_group_
             xml_ldap_translate_result_group(ldap_connection, group->child, &group_tag, off);
     }
 }
-static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *transb, switch_xml_t *parent_tag, int *off) {
+static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *trans, switch_xml_t *parent_tag, int *off) {
 	struct ldap_c *ldap = ldap_connection;
     switch_xml_t attr_tag;
 	trans_t *iter;
@@ -273,7 +274,7 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 		return NULL;
 	}
 
-    switch_zmalloc(ldap, sizeof(struct ldap));
+    switch_zmalloc(ldap, sizeof(struct ldap_c));
     if (!ldap) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Not enought memory avaible\n");
         return NULL;
@@ -337,7 +338,15 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 					goto cleanup;
 				}
 				break;
-
+            case XML_LDAP_DIALPLAN:
+            case XML_LDAP_PHRASE:
+            case XML_LDAP_CONFIG:
+				goto cleanup;
+            }
+        } else {
+            goto cleanup;
+        }
+    }
 
 	if ((ldap->ld = (LDAP *) ldap_init(binding->host, LDAP_PORT)) == NULL) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to connect to ldap server.%s\n", binding->host);
@@ -376,7 +385,7 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 		goto ldapcleanup;
 	}
 
-	if (sub && xml_ldap_translate_result(&ldap_connection, binding, &sub, &off, query_type) != SWITCH_STATUS_SUCCESS) {
+	if (sub && xml_ldap_translate_result(ldap, binding, &sub, &off, query_type) != SWITCH_STATUS_SUCCESS) {
         ret = 1;
 		goto ldapcleanup;
 	}
@@ -397,7 +406,7 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 	switch_safe_free(search_base);
 	switch_safe_free(ldap);
     if(xml_ldap_translate_debug_xml) {
-        switch_zmalloc(buf, sizeof(struct ldap));
+        switch_zmalloc(buf, 4096);
         if(!buf) {
         }
         switch_xml_toxml_buf(xml, buf, 4095, 0, 1);
