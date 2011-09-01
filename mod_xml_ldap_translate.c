@@ -438,15 +438,8 @@ static switch_status_t do_config(void)
 	for (binding_tag = switch_xml_child(bindings_tag, "binding"); binding_tag; binding_tag = binding_tag->next) {
 		char *bname = (char *) switch_xml_attr_soft(binding_tag, "name");
 
-		if (!(binding = calloc(1, sizeof(*binding)))) {
-			goto done;
-		}
-		memset(binding, 0, sizeof(xml_binding_t));
-
-		if (!(binding->defaults = calloc(1, sizeof(lutilSASLdefaults)))) {
-			goto done;
-		}
-		memset(binding->defaults, 0, sizeof(lutilSASLdefaults));
+        switch_zmalloc(binding, sizeof(xml_binding_t));
+        switch_zmalloc(binding->defaults, sizeof(lutilSASLdefaults));
 
 		for (param = switch_xml_child(binding_tag, "param"); param; param = param->next) {
 
@@ -522,7 +515,7 @@ static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_ta
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "attrname %s, xmlname %s or ldapname %s or defaultval %s is empty or null\n", attrname, xmlname, ldapname, defaultval );
 			continue;
 		}
-		iter = calloc(1, sizeof(struct trans));
+        switch_zmalloc(iter, sizeof(struct trans));
 		if(prev)
 			prev->next = iter;
         else
@@ -553,7 +546,7 @@ static int xml_ldap_translate_set_group(trans_group_t **group, switch_xml_t *par
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "groupname not defined or empty !\n");
 			continue;
 		}
-		iter = calloc(1, sizeof(trans_group_t));
+        switch_zmalloc(iter, sizeof(trans_group_t));
 		if(prev)
 			prev->next = iter;
         else
