@@ -367,15 +367,9 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 			goto ldapcleanup;
 		}
 	} else {
-		if (ldap_sasl_interactive_bind_s
-			(ldap->ld, NULL, binding->defaults->mech, NULL, NULL, (unsigned) (intptr_t) LDAP_SASL_SIMPLE, lutil_sasl_interact,
-			 binding->defaults) != LDAP_SUCCESS) {
-			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to sasl_bind to ldap server %s as %s\n", binding->host,
-							  binding->defaults->authcid);
 			goto ldapcleanup;
-		}
 	}
-	
+
 	if (ldap_search_s(ldap->ld, search_base, LDAP_SCOPE_SUBTREE, search_filter, NULL, 0, &ldap->msg) != LDAP_SUCCESS) {
 		goto ldapcleanup;
 	}
