@@ -102,6 +102,7 @@ typedef struct ldap_c {
 } ldap_ctx;
 
 static int xml_ldap_translate_debug_xml;
+static xml_binding_t *xml_ldap_binding;
 
 static switch_status_t xml_ldap_translate_directory_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *xml, int *off);
 static int xml_ldap_translate_set_trans(trans_t **first, switch_xml_t *parent_tag);
@@ -110,6 +111,8 @@ static int xml_ldap_translate_set_group(trans_group_t **group, switch_xml_t *par
 static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *trans, switch_xml_t *parent_tag, int *off);
 static void xml_ldap_translate_result_group(void *ldap_connection, trans_group_t *group, switch_xml_t *parent_tag, int *off);
 
+static void xml_ldap_translate_free_trans_group(trans_group_t* tgs);
+static void xml_ldap_translate_free_trans(trans_t* ts);
 #define XML_LDAP_TRANSLATE_SYNTAX "[xml_output_on|xml_output_off]"
 
 SWITCH_STANDARD_API(xml_ldap_translate_function)
@@ -245,7 +248,7 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 									void *user_data)
 {
 	xml_binding_t *binding = (xml_binding_t *) user_data;
-	switch_event_header_t *hi;
+	switch_event_header_t *hi = NULL;
 
 	switch_xml_t xml = NULL, sub = NULL;
 
@@ -259,7 +262,7 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 	char *search_filter = NULL, *search_base = NULL;
 	int off = 0, ret = 1;
 
-	char *buf;
+	char *buf = NULL;
 
 
 	if (!binding) {
@@ -288,9 +291,13 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 
 				case XML_LDAP_DIRECTORY:
 					if (!strcmp(hi->name, "user")) {
-						dir_exten = strdup(hi->value);
+                        if(!dir_exten) {
+						    dir_exten = strdup(hi->value);
+                        }
 					} else if (!strcmp(hi->name, "domain")) {
-						dir_domain = strdup(hi->value);
+                        if(!dir_domain) {
+    						dir_domain = strdup(hi->value);
+                        }
 					}
 					break;
 
@@ -396,6 +403,8 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 	}
 
   cleanup:
+    switch_safe_free(dir_exten);
+    switch_safe_free(dir_domain);
 	switch_safe_free(search_filter);
 	switch_safe_free(search_base);
 	switch_safe_free(ldap);
@@ -422,7 +431,6 @@ static switch_status_t do_config(void)
 {
 	char *cf = "xml_ldap_translate.conf";
 	switch_xml_t cfg, xml, bindings_tag, binding_tag, param, trans_tag;
-	xml_binding_t *binding = NULL;
 	int x = 0;
 
 	if (!(xml = switch_xml_open_cfg(cf, &cfg, NULL))) {
@@ -438,8 +446,8 @@ static switch_status_t do_config(void)
 	for (binding_tag = switch_xml_child(bindings_tag, "binding"); binding_tag; binding_tag = binding_tag->next) {
 		char *bname = (char *) switch_xml_attr_soft(binding_tag, "name");
 
-        switch_zmalloc(binding, sizeof(xml_binding_t));
-        switch_zmalloc(binding->defaults, sizeof(lutilSASLdefaults));
+        switch_zmalloc(xml_ldap_binding, sizeof(xml_binding_t));
+        switch_zmalloc(xml_ldap_binding->defaults, sizeof(lutilSASLdefaults));
 
 		for (param = switch_xml_child(binding_tag, "param"); param; param = param->next) {
 
@@ -447,50 +455,47 @@ static switch_status_t do_config(void)
 			char *val = (char *) switch_xml_attr_soft(param, "value");
 
 			if (!strcasecmp(var, "filter")) {
-				binding->bindings = (char *) switch_xml_attr_soft(param, "bindings");
+				xml_ldap_binding->bindings = strdup((char *) switch_xml_attr_soft(param, "bindings"));
 				if (val) {
-					binding->filter = strdup(val);
+					xml_ldap_binding->filter = strdup(val);
 				}
 			} else if (!strcasecmp(var, "basedn")) {
-				binding->basedn = strdup(val);
+				xml_ldap_binding->basedn = strdup(val);
 			} else if (!strcasecmp(var, "binddn")) {
-				binding->binddn = strdup(val);
+				xml_ldap_binding->binddn = strdup(val);
 			} else if (!strcasecmp(var, "bindpass")) {
-				binding->bindpass = strdup(val);
+				xml_ldap_binding->bindpass = strdup(val);
 			} else if (!strcasecmp(var, "host")) {
-				binding->host = strdup(val);
+				xml_ldap_binding->host = strdup(val);
 			} else if (!strcasecmp(var, "mech")) {
-				binding->defaults->mech = strdup(val);
+				xml_ldap_binding->defaults->mech = strdup(val);
 			} else if (!strcasecmp(var, "realm")) {
-				binding->defaults->realm = strdup(val);
+				xml_ldap_binding->defaults->realm = strdup(val);
 			} else if (!strcasecmp(var, "authcid")) {
-				binding->defaults->authcid = strdup(val);
+				xml_ldap_binding->defaults->authcid = strdup(val);
 			} else if (!strcasecmp(var, "authzid")) {
-				binding->defaults->authzid = strdup(val);
+				xml_ldap_binding->defaults->authzid = strdup(val);
 			}
 		}
-		if (!binding->basedn || !binding->filter) {
+		if (!xml_ldap_binding->basedn || !xml_ldap_binding->filter) {
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "You must define \"basedn\", and \"filter\" in mod_xml_translate_ldap_translate.conf.xml\n");
 			/* TODO will this create a memory leak ? */
 			continue;
 		}
-		
+
 		if (!(trans_tag = switch_xml_child(binding_tag, "trans")))  {
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "You must define trans tag in mod_xml_ldap_translate.conf.xml\n");
 			/* TODO memory leak ? */
 			continue;
 		}
-		xml_ldap_translate_set_group(&(binding->trans_group), &trans_tag);
-		xml_ldap_translate_set_trans(&(binding->trans), &trans_tag);
+		xml_ldap_translate_set_group(&(xml_ldap_binding->trans_group), &trans_tag);
+		xml_ldap_translate_set_trans(&(xml_ldap_binding->trans), &trans_tag);
 		/* TODO check for a group, if no group configured... */
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "Binding [%s] XML Fetch Function [%s] (%s) [%s]\n",
-						  zstr(bname) ? "N/A" : bname, binding->basedn, binding->filter, binding->bindings ? binding->bindings : "all");
+						  zstr(bname) ? "N/A" : bname, xml_ldap_binding->basedn, xml_ldap_binding->filter, xml_ldap_binding->bindings ? xml_ldap_binding->bindings : "all");
 
-		switch_xml_bind_search_function(xml_ldap_translate_search, switch_xml_parse_section_string(bname), binding);
-
+		switch_xml_bind_search_function(xml_ldap_translate_search, switch_xml_parse_section_string(bname), xml_ldap_binding);
 		x++;
-		binding = NULL;
-		
 	}
 
   done:
@@ -571,6 +576,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_translate_load)
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "XML LDAP module loading...\n");
 
     xml_ldap_translate_debug_xml = 0;
+    xml_ldap_binding = NULL;
 
 	if (do_config() != SWITCH_STATUS_SUCCESS) {
 		return SWITCH_STATUS_FALSE;
@@ -580,8 +586,43 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_translate_load)
 	return SWITCH_STATUS_SUCCESS;
 }
 
+static void xml_ldap_translate_free_trans_group(trans_group_t* tgs) {
+    switch_safe_free(tgs->name);
+    if(tgs->trans)
+        xml_ldap_translate_free_trans(tgs->trans);
+    if(tgs->child)
+        xml_ldap_translate_free_trans_group(tgs->child);
+    if(tgs->next)
+        xml_ldap_translate_free_trans_group(tgs->next);
+}
+
+
+static void xml_ldap_translate_free_trans(trans_t* ts) {
+    switch_safe_free(ts->ldapname);
+    switch_safe_free(ts->xmlname);
+    switch_safe_free(ts->attrname);
+    switch_safe_free(ts->defaultval);
+    if(ts->next)
+        xml_ldap_translate_free_trans(ts->next);
+}
+
 SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_xml_ldap_translate_shutdown)
 {
+    if (xml_ldap_binding) {
+        switch_safe_free(xml_ldap_binding->bindings)
+        switch_safe_free(xml_ldap_binding->host);
+        switch_safe_free(xml_ldap_binding->basedn);
+        switch_safe_free(xml_ldap_binding->binddn);
+        switch_safe_free(xml_ldap_binding->bindpass);
+        switch_safe_free(xml_ldap_binding->filter);
+        switch_safe_free(xml_ldap_binding->defaults)
+
+        if(xml_ldap_binding->trans)
+            xml_ldap_translate_free_trans(xml_ldap_binding->trans);
+        if(xml_ldap_binding->trans_group)
+            xml_ldap_translate_free_trans_group(xml_ldap_binding->trans_group);
+        switch_safe_free(xml_ldap_binding);
+    }
 	/* free pointer ? like the binding */
 	return SWITCH_STATUS_SUCCESS;
 }
