@@ -77,7 +77,7 @@ typedef struct trans_group {
 
 typedef struct xml_binding {
     char *bindings;
-    char *host;
+    char *uri;
     char *basedn;
     char *binddn;
     char *bindpass;
@@ -354,9 +354,9 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
             goto cleanup;
         }
     }
-
-    if ((ldap->ld = (LDAP *) ldap_init(binding->host, LDAP_PORT)) == NULL) {
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to connect to ldap server.%s\n", binding->host);
+    ret = ldap_initialize(&ldap->ld, binding->uri);
+    if (ret != LDAP_SUCCESS) {
+        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to connect to ldap server.%s\n", binding->uri);
         goto cleanup;
     }
 
@@ -370,7 +370,7 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
 
     if (binding->binddn) {
         if (ldap_bind_s(ldap->ld, binding->binddn, binding->bindpass, auth_method) != LDAP_SUCCESS) {
-            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to bind to ldap server %s as %s\n", binding->host, binding->binddn);
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Unable to bind to ldap server %s as %s\n", binding->uri, binding->binddn);
             goto ldapcleanup;
         }
     } else {
@@ -465,8 +465,8 @@ static switch_status_t do_config(void)
                 xml_ldap_binding->binddn = strdup(val);
             } else if (!strcasecmp(var, "bindpass")) {
                 xml_ldap_binding->bindpass = strdup(val);
-            } else if (!strcasecmp(var, "host")) {
-                xml_ldap_binding->host = strdup(val);
+            } else if (!strcasecmp(var, "uri")) {
+                xml_ldap_binding->uri = strdup(val);
             } else if (!strcasecmp(var, "mech")) {
                 xml_ldap_binding->defaults->mech = strdup(val);
             } else if (!strcasecmp(var, "realm")) {
@@ -610,7 +610,7 @@ SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_xml_ldap_translate_shutdown)
 {
     if (xml_ldap_binding) {
         switch_safe_free(xml_ldap_binding->bindings)
-        switch_safe_free(xml_ldap_binding->host);
+        switch_safe_free(xml_ldap_binding->uri);
         switch_safe_free(xml_ldap_binding->basedn);
         switch_safe_free(xml_ldap_binding->binddn);
         switch_safe_free(xml_ldap_binding->bindpass);
