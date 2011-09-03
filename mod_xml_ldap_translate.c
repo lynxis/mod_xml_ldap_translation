@@ -278,10 +278,6 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
     }
 
     switch_zmalloc(ldap, sizeof(struct ldap_c));
-    if (!ldap) {
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Not enought memory avaible\n");
-        return NULL;
-    }
 
     if (params) {
         if ((hi = params->headers)) {
