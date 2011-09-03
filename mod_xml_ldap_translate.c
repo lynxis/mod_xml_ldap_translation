@@ -183,27 +183,31 @@ static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *tran
     for (iter = trans ; iter ; iter = iter->next) {
         /* search for the field with the same name as ldapname */
         for (ldap->entry = ldap_first_entry(ldap->ld, ldap->msg); ldap->entry != NULL; ldap->entry = ldap_next_entry(ldap->ld, ldap->entry)) {
-            for(ldap->key = ldap_first_attribute(ldap->ld, ldap->entry, &ldap->berkey); ldap->key; ldap->key = ldap_next_attribute(ldap->ld, ldap->entry, ldap->berkey)) {        
+            for(ldap->key = ldap_first_attribute(ldap->ld, ldap->entry, &ldap->berkey); ldap->key; ldap->key = ldap_next_attribute(ldap->ld, ldap->entry, ldap->berkey)) {
                 /* key is not our searched key */
-                if(strcmp(ldap->key, iter->ldapname))
+                if(strcmp(ldap->key, iter->ldapname)) {
+                    ldap_memfree(ldap->key);
+                    ldap->key = NULL;
                     continue;
+                }
+
                 ldap->berval = ldap_get_values_len(ldap->ld, ldap->entry, ldap->key);
                 if(ldap->berval == NULL) {
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "no values found for key %s", ldap->key);
-                    continue;
                 } else if((*ldap->berval)->bv_len == 0 ) {
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "value is empty for key %s", ldap->key);
-                    continue;
                 } else if((*ldap->berval)->bv_val == NULL ) {
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "value is NULL for key %s", ldap->key);
-                    continue;
                 }
                 else {
                     ldap->val = (*ldap->berval)->bv_val;
                     break;
                 }
-
-                /* we use only the first argument/val pair. maybe someone write support for it */    
+                /* we use only the first argument/val pair. maybe someone write support for it */
+                ldap_value_free_len(ldap->berval);
+                ldap->berval = NULL;
+                ldap_memfree(ldap->key);
+                ldap->key = NULL;
             }
             // key maybe not found, may be found
             attr_tag = switch_xml_add_child_d(*parent_tag, iter->attrname, (*off)++);
@@ -211,19 +215,19 @@ static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *tran
             if(ldap->key) {
                 // key found
                 switch_xml_set_attr_d(attr_tag, "value", ldap->val);
-
-                if (ldap->key) {
-                    ldap_memfree(ldap->key);
-                }
-
-                if (ldap->berval) {
-                    ldap_value_free_len(ldap->berval);
-                }
-
-            }
-            else {
+                ldap_memfree(ldap->key);
+            } else {
                 // key not found
                 switch_xml_set_attr_d(attr_tag, "value", iter->defaultval);
+            }
+
+            if (ldap->berval) {
+                ldap_value_free_len(ldap->berval);
+                ldap->berval = NULL;
+            }
+
+            if (ldap->berkey) {
+                ber_free(ldap->berkey, 0);
             }
         }
     }
@@ -231,15 +235,11 @@ static void xml_ldap_translate_result_trans(void *ldap_connection, trans_t *tran
 
 static switch_status_t xml_ldap_translate_directory_result(void *ldap_connection, xml_binding_t *binding, switch_xml_t *parent_tag, int *off)
 {
-    struct ldap_c *ldap = ldap_connection;
 /* iter thought the groups and search for the trans. every group will become a tag and every trans without a value wont write out to the xml */    
 
     if(binding->trans_group)
           xml_ldap_translate_result_group(ldap_connection, binding->trans_group, parent_tag, off);
 
-    if (ldap->berkey) {
-        ber_free(ldap->berkey, 0);
-    }
     return SWITCH_STATUS_SUCCESS;
 }
 
@@ -410,12 +410,9 @@ static switch_xml_t xml_ldap_translate_search(const char *section, const char *t
     switch_safe_free(ldap);
     if(xml_ldap_translate_debug_xml) {
         switch_zmalloc(buf, 4096);
-        if(!buf) {
-        }
         switch_xml_toxml_buf(xml, buf, 4095, 0, 1);
         switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "xml_ldap_translate : XML File :\n%s\n", buf);
-        free(buf);
-        buf = NULL;
+        switch_safe_free(buf);
     }
 
     if (ret) {
