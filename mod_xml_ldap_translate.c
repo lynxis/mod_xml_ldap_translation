@@ -580,23 +580,33 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_xml_ldap_translate_load)
 }
 
 static void xml_ldap_translate_free_trans_group(trans_group_t* tgs) {
-    switch_safe_free(tgs->name);
-    if(tgs->trans)
-        xml_ldap_translate_free_trans(tgs->trans);
-    if(tgs->child)
-        xml_ldap_translate_free_trans_group(tgs->child);
-    if(tgs->next)
-        xml_ldap_translate_free_trans_group(tgs->next);
+    if(tgs) {
+        switch_safe_free(tgs->name);
+        if(tgs->trans) {
+            xml_ldap_translate_free_trans(tgs->trans);
+        }
+        if(tgs->child) {
+            xml_ldap_translate_free_trans_group(tgs->child);
+        }
+        if(tgs->next) {
+            xml_ldap_translate_free_trans_group(tgs->next);
+        }
+        switch_safe_free(tgs);
+    }
 }
 
 
 static void xml_ldap_translate_free_trans(trans_t* ts) {
-    switch_safe_free(ts->ldapname);
-    switch_safe_free(ts->xmlname);
-    switch_safe_free(ts->attrname);
-    switch_safe_free(ts->defaultval);
-    if(ts->next)
-        xml_ldap_translate_free_trans(ts->next);
+    if(ts) {
+        switch_safe_free(ts->ldapname);
+        switch_safe_free(ts->xmlname);
+        switch_safe_free(ts->attrname);
+        switch_safe_free(ts->defaultval);
+        if(ts->next) {
+            xml_ldap_translate_free_trans(ts->next);
+        }
+        switch_safe_free(ts);
+    }
 }
 
 SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_xml_ldap_translate_shutdown)
