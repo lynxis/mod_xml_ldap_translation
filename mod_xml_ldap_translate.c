@@ -42,7 +42,6 @@
 #else
 #include <lber.h>
 #include <ldap.h>
-#include <sasl/sasl.h>
 #endif
 
 #include "lutil_ldap.h"
