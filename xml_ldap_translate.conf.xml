@@ -1,0 +1,26 @@
+<configuration name="xml_ldap_translate.conf" description="XML LDAP">
+<bindings>
+    <binding name="directory">
+            <!--%s is populated with the extension -->
+            <param name="filter" value="(uid=%s)" bindings="directory"/>
+            <!--basedn for the searches %s is replaced with domain-->
+            <param name="basedn" value="ou=people,dc=c-base,dc=org" />
+            <param name="uri" value="ldap://localhost:389/" />
+            <param name="binddn" value="cn=freeswitch,ou=machine,dc=c-base,dc=org" />
+            <param name="bindpass" value="secretpass" />
+            <trans>
+                <group name="params">
+                    <!-- we need to translate these attrs into FS attrs -->
+                    <tran attrname="param" xmlname="password" ldapname="sipPIN" />
+                    <tran attrname="param" xmlname="vm-password" ldapname="sipPIN" />
+                    <tran attrname="param" xmlname="email-addr" ldapname="mail" />
+                    <tran attrname="param" xmlname="dial-string" ldapname="thisfielddoesnotexistanddialstringisspooky" defaultval="{transfer_fallback_extension=${dialed_user}}${sofia_contact(${dialed_user}@${dialed_domain})}"/>
+                </group>
+                <group name="variables">
+                    <tran attrname="variable" xmlname="homephone" ldapname="homePhone"/>
+                    <tran attrname="variable" xmlname="user_context" ldapname="unknown" defaultval="intern"/>
+                </group>
+            </trans>
+    </binding>
+</bindings>
+</configuration>
