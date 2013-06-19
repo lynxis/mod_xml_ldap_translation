@@ -1,6 +1,5 @@
 === TODO ===
-  * cleanup memory leaks 
-  * xml debug
-  * an applicaton to be used within dialplan 
-  * default vars for the translation, used when a field is not defined
+  * cleanup memory leak within config which is not freed on unload
+        (it will some bytes when you reload this module. This is a uncommon task and it only leaks some bytes)
+  * debug - more debug message
   * <user_id="lynxis" number_alias=1023"> feature
