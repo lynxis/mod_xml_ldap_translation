@@ -15,7 +15,7 @@ Copy example *xml_ldap_translate.conf.xml* into your autoload_configs/ directory
 
     # go into your freeswitch source directory.
     cd freeswitch/src/mod/xml_int/
-    git clone git@github.com:lynxis/mod_xml_ldap_translation.git mod_xml_ldap_translation
+    git clone git://github.com/lynxis/mod_xml_ldap_translation.git mod_xml_ldap_translation
     # be carefull of renaming it, because freeswitch is checking every directory for files named '.c' and '.cpp'
     # to validate a module exists. Just don't rename the directory name within xml_int.
     cd ../../../
